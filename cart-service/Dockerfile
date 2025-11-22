@@ -33,5 +33,4 @@ COPY routes/web.php routes/web.php
 EXPOSE 8000
 
 # Jalankan Lumen dengan built-in server
-# CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public", "public/index.php"]
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
