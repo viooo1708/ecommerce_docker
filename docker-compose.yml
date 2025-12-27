@@ -1,21 +1,20 @@
 services:
   product-service:
     build: ./product-service
-    ports: 
+    container_name: product-service
+    ports:
       - "${PRODUCT_SERVICE_PORT}:3000"
     env_file:
       - .env
     environment:
-      - DB_HOST=${PRODUCT_DB_HOST}
-      - DB_NAME=${PRODUCT_DB_NAME}
-      - DB_USER=${PRODUCT_DB_USER}
-      - DB_PASSWORD=${PRODUCT_DB_PASSWORD}
-    container_name: product-services
-    restart: always
+      DB_HOST: ${PRODUCT_DB_HOST}
+      DB_NAME: ${PRODUCT_DB_NAME}
+      DB_USER: ${PRODUCT_DB_USER}
+      DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
     depends_on:
       product-db:
         condition: service_healthy
-
+    restart: always
   
   # product-db:
   #   image: mysql:latest
@@ -28,7 +27,8 @@ services:
   #     - product-db-data:/var/lib/mysql
 
   product-db:
-    image: mysql:latest
+    image: mysql:8.0
+    container_name: product-db
     env_file:
       - .env
     environment:
@@ -37,10 +37,11 @@ services:
     volumes:
       - product-db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+
 
   cart-service:
     build: ./cart-service
@@ -53,22 +54,60 @@ services:
     build: ./review-service
     ports:
       - "5002:5002"
-    container_name: review-service
+    container_name: review-services
     restart: always
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
-    ports:
-      - "8080:80"
-    environment:
-      PMA_HOST: product-db
-      PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: root
+    env_file:
+      - .env
     depends_on:
-      - product-db
-    container_name: phpmyadmin
+      - mongo-db
+    environment:
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo-db:27017/${MONGO_DB_NAME}?authSource=admin
+
+  mongo-db:
+    image: mongo:latest
+    container_name: mongo-db
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - mongo-data:/data/db
     restart: always
+  
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    env_file:
+      - .env
+    environment:
+      ME_CONFIG_BASICAUTH: "true"
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo-db:27017/?authSource=admin
+    ports:
+      - "${MONGO_EXPRESS_PORT}:8081"
+    restart: always
+    depends_on:
+      - mongo-db 
+
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin:latest
+  #   ports:
+  #     - "8080:80"
+  #   environment:
+  #     PMA_HOST: product-db
+  #     PMA_PORT: 3306
+  #     PMA_USER: root
+  #     PMA_PASSWORD: root
+  #   depends_on:
+  #     - product-db
+  #   container_name: phpmyadmin
+  #   restart: always
 
 volumes:
   product-db-data:
+  mongo-data:
